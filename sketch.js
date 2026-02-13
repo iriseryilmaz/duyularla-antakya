@@ -1,4 +1,3 @@
-
 const SOUND_FILES = [
   "sound1.mp3",
   "sound2.mp3",
@@ -8,23 +7,24 @@ const SOUND_FILES = [
   "sound6.mp3",
   "sound7.mp3",
   "sound8.mp3",
-
 ];
+
+const META_TEXT = "17.01.2026 11.00-13.30 İzzet Güçlü Cd. - İstiklal Cd.";
 
 let players = []; // her eleman: { sound, name, vol, ui... }
 
 function preload() {
-  // preload içinde loadSound: hepsi daha setup başlamadan yüklenir
   for (let i = 0; i < SOUND_FILES.length; i++) {
     const filename = SOUND_FILES[i];
     const snd = loadSound(filename);
     players.push({
       sound: snd,
       name: filename,
-      vol: 0.7, // başlangıç ses seviyesi
-      // UI elemanları setup'ta atanacak
+      meta: META_TEXT,
+      vol: 0.7,
       row: null,
       title: null,
+      metaDiv: null,
       btnPlay: null,
       btnStop: null,
       btnVolDown: null,
@@ -47,7 +47,7 @@ function setup() {
   container.style("flex-direction", "column");
   container.style("gap", "10px");
 
-  const header = createDiv("10 Ses Player");
+  const header = createDiv("Ses Player");
   header.style("font-weight", "700");
   header.style("font-size", "18px");
   header.style("margin-bottom", "6px");
@@ -56,8 +56,6 @@ function setup() {
   // Her ses için satır oluştur
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
-
-    // ilk vol uygula
     p.sound.setVolume(p.vol);
 
     const row = createDiv();
@@ -70,6 +68,13 @@ function setup() {
     row.style("border-radius", "10px");
     row.style("background", "#fff");
 
+    // 🔽 "Her sesin üstüne" metin: satırın üstüne küçük başlık gibi ekliyoruz
+    const metaDiv = createDiv(p.meta);
+    metaDiv.style("font-size", "12px");
+    metaDiv.style("opacity", "0.75");
+    metaDiv.style("margin-bottom", "6px");
+
+    // Başlık: dosya adı
     const title = createDiv(`${i + 1}. ${p.name}`);
     title.style("white-space", "nowrap");
     title.style("overflow", "hidden");
@@ -99,6 +104,12 @@ function setup() {
     btnVolUp.mousePressed(() => changeVolume(i, +0.1));
     btnMute.mousePressed(() => toggleMute(i));
 
+    // Meta + Row'u birlikte sarmalayalım (üstüne yazı için)
+    const block = createDiv();
+    block.style("display", "flex");
+    block.style("flex-direction", "column");
+    block.style("gap", "0px");
+
     // satıra diz
     row.child(title);
     row.child(btnPlay);
@@ -108,11 +119,15 @@ function setup() {
     row.child(btnMute);
     row.child(volLabel);
 
-    container.child(row);
+    block.child(metaDiv); // üstte metin
+    block.child(row);     // altta kontroller
+
+    container.child(block);
 
     // ref kaydet
     p.row = row;
     p.title = title;
+    p.metaDiv = metaDiv;
     p.btnPlay = btnPlay;
     p.btnStop = btnStop;
     p.btnVolDown = btnVolDown;
@@ -121,7 +136,9 @@ function setup() {
     p.volLabel = volLabel;
   }
 
-  const note = createDiv("Not: Dosyaları aynı klasöre koy (index.html + sketch.js ile). Tarayıcı autoplay’i engellerse ilk tık sonrası sesler açılır.");
+  const note = createDiv(
+
+  );
   note.style("opacity", "0.7");
   note.style("margin-top", "8px");
   note.style("font-size", "12px");
@@ -129,7 +146,6 @@ function setup() {
 }
 
 function draw() {
-  // Arka plan sadece görsel boşluk için
   background(245);
   noStroke();
   fill(20);
@@ -140,9 +156,7 @@ function draw() {
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
     if (!p.btnPlay) continue;
-
-    const isPlaying = p.sound.isPlaying();
-    p.btnPlay.html(isPlaying ? "Pause" : "Play");
+    p.btnPlay.html(p.sound.isPlaying() ? "Pause" : "Play");
   }
 }
 
@@ -150,13 +164,11 @@ function togglePlay(i) {
   const p = players[i];
   if (!p || !p.sound) return;
 
-  // p5.sound bazı tarayıcılarda kullanıcı etkileşimi sonrası başlar
   userStartAudio();
 
   if (p.sound.isPlaying()) {
     p.sound.pause();
   } else {
-    // play() -> kaldığı yerden devam eder; hiç başlamadıysa baştan
     p.sound.play();
   }
 }
@@ -175,7 +187,6 @@ function changeVolume(i, delta) {
   const p = players[i];
   if (!p || !p.sound) return;
 
-  // eğer muted ise önce unmute edelim (mantıklı UX)
   if (p.muted) {
     p.muted = false;
     p.btnMute?.html("Mute");
@@ -183,7 +194,7 @@ function changeVolume(i, delta) {
 
   p.vol = clamp(p.vol + delta, 0, 1);
   p.sound.setVolume(p.vol);
-  if (p.volLabel) p.volLabel.html(`Vol: ${p.vol.toFixed(2)}`);
+  p.volLabel?.html(`Vol: ${p.vol.toFixed(2)}`);
 }
 
 function toggleMute(i) {
@@ -200,6 +211,6 @@ function toggleMute(i) {
     p.vol = p.prevVol;
     p.muted = false;
     p.btnMute?.html("Mute");
-    if (p.volLabel) p.volLabel.html(`Vol: ${p.vol.toFixed(2)}`);
+    p.volLabel?.html(`Vol: ${p.vol.toFixed(2)}`);
   }
 }
