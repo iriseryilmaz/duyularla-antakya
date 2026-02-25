@@ -128,7 +128,7 @@ function setup() {
     metaDiv.style("opacity", "0.75");
     metaDiv.style("margin-bottom", "6px");
 
-    const title = createDiv(`${i + 1}. ${p.name}`);
+    const title = createDiv(`${i + 1}. Ses`);
     title.style("white-space", "nowrap");
     title.style("overflow", "hidden");
     title.style("text-overflow", "ellipsis");
