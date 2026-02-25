@@ -11,7 +11,10 @@ const SOUND_FILES = [
 
 const META_TEXT = "17.01.2026 11.00-13.30 İzzet Güçlü Cd. - İstiklal Cd.";
 
-let players = []; // her eleman: { sound, name, vol, ui... }
+let players = [];
+let audioUnlocked = false;
+let btnUnlock = null;
+let unlockHint = null;
 
 function preload() {
   for (let i = 0; i < SOUND_FILES.length; i++) {
@@ -37,6 +40,32 @@ function preload() {
   }
 }
 
+async function unlockAudio() {
+  try {
+    // p5.sound helper
+    userStartAudio();
+
+    // iOS Safari için kritik: context resume
+    const ctx = getAudioContext();
+    if (ctx && ctx.state !== "running") {
+      await ctx.resume();
+    }
+
+    // bazen masterVolume 0 kalabiliyor (emin olmak için)
+    masterVolume(1);
+
+    audioUnlocked = (getAudioContext()?.state === "running");
+    if (unlockHint) {
+      unlockHint.html(audioUnlocked ? "✅ Ses hazır" : "⚠️ Ses açılmadı, tekrar dokun");
+      unlockHint.style("opacity", audioUnlocked ? "0.8" : "1");
+    }
+  } catch (e) {
+    if (unlockHint) unlockHint.html("⚠️ Ses açılırken hata oldu");
+    // console için:
+    // console.error(e);
+  }
+}
+
 function setup() {
   createCanvas(900, 520);
   background(245);
@@ -53,6 +82,32 @@ function setup() {
   header.style("margin-bottom", "6px");
   container.child(header);
 
+  // ✅ Telefon için: önce sesi açtıran bar
+  const unlockBar = createDiv();
+  unlockBar.style("display", "flex");
+  unlockBar.style("gap", "10px");
+  unlockBar.style("align-items", "center");
+  unlockBar.style("padding", "10px");
+  unlockBar.style("border", "1px solid #ddd");
+  unlockBar.style("border-radius", "10px");
+  unlockBar.style("background", "#fff");
+
+  btnUnlock = createButton("Sesi Aç");
+  btnUnlock.style("padding", "10px 12px");
+  btnUnlock.style("border-radius", "10px");
+  btnUnlock.style("border", "1px solid #ccc");
+  btnUnlock.style("background", "#f7f7f7");
+  btnUnlock.style("cursor", "pointer");
+  btnUnlock.mousePressed(() => unlockAudio());
+
+  unlockHint = createDiv("📱 Telefonda önce ‘Sesi Aç’a dokun.");
+  unlockHint.style("font-size", "12px");
+  unlockHint.style("opacity", "0.85");
+
+  unlockBar.child(btnUnlock);
+  unlockBar.child(unlockHint);
+  container.child(unlockBar);
+
   // Her ses için satır oluştur
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
@@ -68,13 +123,11 @@ function setup() {
     row.style("border-radius", "10px");
     row.style("background", "#fff");
 
-    // 🔽 "Her sesin üstüne" metin: satırın üstüne küçük başlık gibi ekliyoruz
     const metaDiv = createDiv(p.meta);
     metaDiv.style("font-size", "12px");
     metaDiv.style("opacity", "0.75");
     metaDiv.style("margin-bottom", "6px");
 
-    // Başlık: dosya adı
     const title = createDiv(`${i + 1}. ${p.name}`);
     title.style("white-space", "nowrap");
     title.style("overflow", "hidden");
@@ -104,13 +157,11 @@ function setup() {
     btnVolUp.mousePressed(() => changeVolume(i, +0.1));
     btnMute.mousePressed(() => toggleMute(i));
 
-    // Meta + Row'u birlikte sarmalayalım (üstüne yazı için)
     const block = createDiv();
     block.style("display", "flex");
     block.style("flex-direction", "column");
     block.style("gap", "0px");
 
-    // satıra diz
     row.child(title);
     row.child(btnPlay);
     row.child(btnStop);
@@ -119,12 +170,11 @@ function setup() {
     row.child(btnMute);
     row.child(volLabel);
 
-    block.child(metaDiv); // üstte metin
-    block.child(row);     // altta kontroller
+    block.child(metaDiv);
+    block.child(row);
 
     container.child(block);
 
-    // ref kaydet
     p.row = row;
     p.title = title;
     p.metaDiv = metaDiv;
@@ -135,14 +185,6 @@ function setup() {
     p.btnMute = btnMute;
     p.volLabel = volLabel;
   }
-
-  const note = createDiv(
-
-  );
-  note.style("opacity", "0.7");
-  note.style("margin-top", "8px");
-  note.style("font-size", "12px");
-  container.child(note);
 }
 
 function draw() {
@@ -152,7 +194,6 @@ function draw() {
   textSize(12);
   text("Sesleri kontrol etmek için üstteki butonları kullan.", 16, height - 16);
 
-  // Buton metinlerini oynama durumuna göre güncelle
   for (let i = 0; i < players.length; i++) {
     const p = players[i];
     if (!p.btnPlay) continue;
@@ -160,11 +201,25 @@ function draw() {
   }
 }
 
-function togglePlay(i) {
+// ✅ iOS için ekstra: sayfaya ilk dokunuşta da açmayı dene
+function touchStarted() {
+  if (!audioUnlocked) unlockAudio();
+  return false; // mobilde bazı scroll/tap davranışlarını düzeltir
+}
+
+async function togglePlay(i) {
   const p = players[i];
   if (!p || !p.sound) return;
 
-  userStartAudio();
+  if (!audioUnlocked) {
+    await unlockAudio();
+  }
+
+  // hâlâ running değilse kullanıcıya net uyarı
+  if (getAudioContext()?.state !== "running") {
+    if (unlockHint) unlockHint.html("⚠️ Ses izin vermedi. Tekrar ‘Sesi Aç’a dokun.");
+    return;
+  }
 
   if (p.sound.isPlaying()) {
     p.sound.pause();
